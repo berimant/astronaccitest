@@ -1,5 +1,3 @@
-// File: lib/screens/home/edit_profile_screen.dart
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -7,7 +5,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart'; 
 import 'package:astronacci_test_flutter/blocs/auth/auth_cubit.dart';
 import 'package:astronacci_test_flutter/blocs/auth/auth_state.dart';
-import 'package:astronacci_test_flutter/services/api_service.dart'; // Pastikan path ini benar
 import 'package:astronacci_test_flutter/models/user_model.dart'; // Pastikan path ini benar
 
 class EditProfileScreen extends StatefulWidget {
@@ -24,11 +21,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   
   File? _imageFile;
   bool _isLoading = false;
-
+  
   @override
   void initState() {
     super.initState();
-    // Pastikan state saat ini adalah AuthAuthenticated
     final AuthAuthenticated authState = context.read<AuthCubit>().state as AuthAuthenticated;
     _nameController = TextEditingController(text: authState.user.name);
     _emailController = TextEditingController(text: authState.user.email);
@@ -43,22 +39,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   // --- LOGIKA UPLOAD FOTO ---
   Future<void> _pickAndCropImage() async {
-    // 1. Ambil Gambar dari Galeri
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
     if (pickedFile != null) {
-      // 2. Lakukan Cropping
       final croppedFile = await ImageCropper().cropImage(
         sourcePath: pickedFile.path,
-        // Konfigurasi UI dan Cropping
         uiSettings: [
           AndroidUiSettings(
             toolbarTitle: 'Crop Avatar',
             toolbarColor: Colors.teal,
             toolbarWidgetColor: Colors.white,
-            initAspectRatio: CropAspectRatioPreset.square, // Rasio 1:1 (Kotak)
-            lockAspectRatio: true, // Kunci rasio
+            initAspectRatio: CropAspectRatioPreset.square, 
+            lockAspectRatio: true, 
           ),
           IOSUiSettings(
             title: 'Crop Avatar',
@@ -69,43 +62,41 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (croppedFile != null) {
         setState(() {
-          _imageFile = File(croppedFile.path); // Simpan file yang sudah di-crop
+          _imageFile = File(croppedFile.path);
         });
-        _uploadAvatar(); // Lanjutkan untuk upload
+        // Panggil uploadAvatar segera setelah cropping
+        _uploadAvatar(); 
       }
     }
   }
   
+  // FIX KRITIS: Memanggil AuthCubit.uploadAvatar
   Future<void> _uploadAvatar() async {
     if (_imageFile == null) return;
 
     setState(() => _isLoading = true);
-    // Akses ApiService melalui getter publik dari AuthCubit
-    final apiService = context.read<AuthCubit>().apiService; 
-
-    try {
-      final updatedUser = await apiService.uploadAvatar(_imageFile!);
-      // Update state AuthCubit dengan data user baru yang berisi avatarUrl
-      context.read<AuthCubit>().updateUser(updatedUser); 
-      
-      if (mounted) {
+    
+    // GANTI: Panggil metode AuthCubit yang baru kita buat
+    final errorMessage = await context.read<AuthCubit>().uploadAvatar(_imageFile!); 
+    
+    if (mounted) {
+      if (errorMessage == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Avatar berhasil diperbarui!')),
         );
-        _imageFile = null; // Bersihkan file lokal sementara
-      }
-    } catch (e) {
-      if (mounted) {
+        _imageFile = null; // Hapus file lokal setelah sukses
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal upload avatar: ${e.toString()}')),
+          SnackBar(content: Text('Gagal upload avatar: $errorMessage')),
         );
       }
-    } finally {
-      setState(() => _isLoading = false);
     }
+
+    setState(() => _isLoading = false);
   }
 
-  // --- LOGIKA UPDATE PROFIL Teks (Nama, Email) ---
+
+  // --- LOGIKA UPDATE PROFIL Teks (Tidak Berubah) ---
   Future<void> _updateProfile() async {
     if (!_formKey.currentState!.validate()) return;
     
@@ -123,7 +114,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profil berhasil diperbarui!')),
         );
-        Navigator.pop(context); // Kembali ke ProfileScreen
+        Navigator.pop(context);
       }
     } on Exception catch (e) {
       String errorMessage = 'Gagal memperbarui profil.';
@@ -139,13 +130,39 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       setState(() => _isLoading = false);
     }
   }
+  
+  // --- LOGIKA LOGOUT (Tidak Berubah) ---
+  void _logout() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Konfirmasi Logout'),
+        content: const Text('Apakah Anda yakin ingin keluar?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              context.read<AuthCubit>().logout();
+            },
+            child: const Text('Logout', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     // Ambil data user dari state saat ini
     final AuthAuthenticated authState = context.watch<AuthCubit>().state as AuthAuthenticated;
     final UserModel user = authState.user;
-    final String? avatarUrl = user.avatarUrl;
+    final String? finalAvatarUrl = user.avatarUrl; 
+    
+    final bool hasAvatar = finalAvatarUrl != null && finalAvatarUrl.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
@@ -170,9 +187,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       // Prioritas: 1. File lokal baru (_imageFile), 2. URL Avatar, 3. Inisial
                       child: _imageFile != null 
                         ? ClipOval(child: Image.file(_imageFile!, width: 120, height: 120, fit: BoxFit.cover))
-                        : (avatarUrl != null && avatarUrl.isNotEmpty 
+                        // Menggunakan finalAvatarUrl yang sudah dijamin absolut dari AuthCubit
+                        : (hasAvatar 
                             ? ClipOval(child: Image.network(
-                                avatarUrl,
+                                finalAvatarUrl!, 
                                 width: 120, 
                                 height: 120, 
                                 fit: BoxFit.cover,
@@ -248,6 +266,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 15),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              
+              const SizedBox(height: 20),
+              
+              // --- Tombol Logout ---
+              OutlinedButton.icon(
+                icon: const Icon(Icons.logout, color: Colors.red),
+                label: const Text('Logout', style: TextStyle(fontSize: 18, color: Colors.red)),
+                onPressed: _logout,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  side: const BorderSide(color: Colors.red),
                 ),
               ),
             ],

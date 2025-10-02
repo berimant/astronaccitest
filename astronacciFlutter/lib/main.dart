@@ -1,5 +1,8 @@
 // File: lib/main.dart
 
+import 'dart:io';
+
+import 'package:astronacci_test_flutter/core/http_override.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,7 +17,7 @@ import 'services/dio_client.dart';
 void main() async {
   // Wajib dilakukan sebelum menggunakan SharedPreferences
   WidgetsFlutterBinding.ensureInitialized();
-  
+  HttpOverrides.global = MyHttpOverrides();
   // Inisialisasi Kebutuhan API & State Management
   final SharedPreferences prefs = await SharedPreferences.getInstance();
   final DioClient dioClient = DioClient(prefs);

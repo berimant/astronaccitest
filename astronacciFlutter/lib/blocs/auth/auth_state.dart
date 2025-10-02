@@ -15,7 +15,7 @@ class AuthLoading extends AuthState {}
 
 class AuthAuthenticated extends AuthState {
   final UserModel user;
-  final String token; // Token diperlukan oleh state ini!
+  final String token; 
   
   const AuthAuthenticated({
     required this.user,
@@ -27,3 +27,14 @@ class AuthAuthenticated extends AuthState {
 }
 
 class AuthUnauthenticated extends AuthState {}
+
+// Menambahkan properti rawLog dan memastikan Equatable compatibility
+class AuthError extends AuthState {
+  final String message;
+  final String? rawLog;
+
+  const AuthError({required this.message, this.rawLog});
+
+  @override
+  List<Object?> get props => [message, rawLog];
+}

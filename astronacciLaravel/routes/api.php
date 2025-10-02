@@ -19,6 +19,9 @@ Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']); 
 // Akses: POST /api/forgot-password
 Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
+Route::get('/health', function () {
+    return response()->json(['status' => 'ok'], 200);
+});
 
 // --- Protected Endpoints (Requires sanctum token) ---
 Route::middleware('auth:sanctum')->group(function () {

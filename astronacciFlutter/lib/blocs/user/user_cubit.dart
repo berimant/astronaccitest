@@ -90,4 +90,33 @@ class UserCubit extends Cubit<UserState> {
       emit(UserError('Terjadi kesalahan saat mencari.'));
     }
   }
+  
+  // --- 3. Sinkronisasi Data Pengguna Saat Ini (Fix Stale State) ---
+  // Dipanggil oleh BlocListener di ListUserScreen ketika AuthState berubah
+  void syncCurrentUserUpdate(UserModel updatedUser) {
+    final currentState = state;
+    
+    // Hanya lakukan sinkronisasi jika state saat ini adalah UserLoaded
+    if (currentState is UserLoaded) {
+      
+      // Menggunakan map untuk mengganti UserModel lama dengan yang baru (immutability)
+      final List<UserModel> updatedList = currentState.users.map((user) {
+        // Cek apakah ID user di list sama dengan ID user yang baru di-update
+        if (user.id == updatedUser.id) {
+          // Ganti model lama dengan model baru dari AuthCubit
+          return updatedUser; 
+        }
+        return user;
+      }).toList();
+
+      // Emit state baru dengan list yang sudah disinkronkan
+      // Pastikan semua properti UserLoaded state dipertahankan
+      emit(UserLoaded(
+        users: updatedList,
+        hasReachedMax: currentState.hasReachedMax,
+        currentPage: currentState.currentPage,
+        searchQuery: currentState.searchQuery,
+      ));
+    }
+  }
 }

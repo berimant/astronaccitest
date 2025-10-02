@@ -1,6 +1,6 @@
+import 'dart:io'; // KRITIS: Import File untuk fungsi uploadAvatar
 import 'package:bloc/bloc.dart';
 import 'package:dio/dio.dart';
-// Mengubah import path menjadi relatif untuk kompatibilitas struktur folder
 import 'package:astronacci_test_flutter/models/user_model.dart'; 
 import 'package:astronacci_test_flutter/services/api_service.dart';
 import 'auth_state.dart';
@@ -8,24 +8,20 @@ import 'auth_state.dart';
 class AuthCubit extends Cubit<AuthState> {
   final ApiService _apiService;
 
-  // >> PERBAIKAN: Tambahkan getter publik agar ApiService bisa diakses dari luar
   ApiService get apiService => _apiService;
 
   AuthCubit(this._apiService) : super(AuthInitial());
 
   // 1. Cek Status Otentikasi saat aplikasi dimulai
   void checkAuthStatus() async {
+    emit(AuthLoading());
     final token = _apiService.getTokenFromPrefs();
     if (token != null) {
       try {
-        // Coba ambil data user untuk validasi token
         final user = await _apiService.fetchAuthenticatedUser();
-        // Dapatkan token lagi (jika API service menyimpan)
         final token = _apiService.getTokenFromPrefs(); 
-        // FIX: Menyertakan token yang sudah didapatkan dari SharedPreferences
         emit(AuthAuthenticated(user: user, token: token!)); 
       } on DioException {
-        // Jika token invalid (401), hapus token dan kembali ke Login
         _apiService.clearToken();
         emit(AuthUnauthenticated());
       } catch (e) {
@@ -37,14 +33,16 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   // 2. Login User
-  Future<String?> login(String email, String password) async {
+  Future<void> login(String email, String password) async {
     emit(AuthLoading());
     
-    // --- PERBAIKAN: Validasi Panjang Password Minimal 8 Karakter (Client-side) ---
     if (password.length < 8) {
-      // Langsung kembalikan ke state Unauthenticated agar loading screen hilang.
+      emit(const AuthError(
+        message: 'Password harus minimal 8 karakter.',
+        rawLog: 'Client-side validation failed: password too short.',
+      )); 
       emit(AuthUnauthenticated()); 
-      return 'Password harus minimal 8 karakter.';
+      return;
     }
 
     try {
@@ -52,22 +50,25 @@ class AuthCubit extends Cubit<AuthState> {
         email: email,
         password: password,
       );
-      // FIX: Menyertakan response.user DAN response.token
+      
       emit(AuthAuthenticated(user: response.user, token: response.token));
-      return null; // Sukses
+      
     } on DioException catch (e) {
-      // --- PERBAIKAN KRITIS: Selalu kembali ke state Unauthenticated setelah gagal ---
-      // Ini menghentikan loading screen di UI, memungkinkan form Login terlihat lagi.
+      final String errorMessage = e.response?.data['message'] ?? 'Email atau password salah. Silakan coba lagi.';
+      
+      emit(AuthError(
+        message: errorMessage,
+        rawLog: e.toString(), 
+      ));
+      
       emit(AuthUnauthenticated()); 
       
-      // Ambil pesan error dari respons Dio (misal: "Invalid credentials")
-      return e.response?.data['message'] ?? 'Email atau password salah. Silakan coba lagi.';
     } catch (e) {
-      // --- PERBAIKAN STUCK: Tangkap Exception generik (seperti "Invalid credentials")
-      // dan reset state agar loading screen hilang.
+      emit(AuthError(
+        message: 'Terjadi kesalahan tak terduga.',
+        rawLog: e.toString(), 
+      ));
       emit(AuthUnauthenticated()); 
-      // Karena log menunjukkan "Invalid credentials", kita asumsikan ini adalah error umum login.
-      return 'Email atau password salah. Silakan coba lagi.';
     }
   }
 
@@ -86,31 +87,27 @@ class AuthCubit extends Cubit<AuthState> {
         password: password,
         passwordConfirmation: passwordConfirmation,
       );
-      // FIX: Menyertakan response.user DAN response.token
       emit(AuthAuthenticated(user: response.user, token: response.token));
-      return null; // Sukses
+      return null; 
     } on DioException catch (e) {
       emit(AuthUnauthenticated());
-      // Ambil pesan error dari respons Dio (Laravel Validation)
       final errors = e.response?.data['errors'] as Map<String, dynamic>?;
       if (errors != null && errors.containsKey('email')) {
-        return errors['email'][0]; // Ambil error pertama untuk email
+        return errors['email'][0]; 
       }
       return e.response?.data['message'] ?? 'Registrasi gagal, periksa data Anda.';
     } catch (e) {
-      // Tambahkan penangkapan Exception generik untuk menghindari stuck loading saat register gagal.
       emit(AuthUnauthenticated());
       return 'Terjadi kesalahan tak terduga saat registrasi. Silakan coba lagi.';
     }
   }
 
-  // 4. Lupa Password (Form Register, Login & Lupa Password)
+  // 4. Lupa Password
   Future<String> forgotPassword(String email) async {
     try {
       await _apiService.forgotPassword(email);
       return 'Link reset password telah dikirim ke email Anda.';
     } on DioException catch (e) {
-      // Menangani error jika email tidak ditemukan
       final errors = e.response?.data['errors'] as Map<String, dynamic>?;
       if (errors != null && errors.containsKey('email')) {
         return errors['email'][0];
@@ -124,34 +121,37 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       await _apiService.logout();
     } catch (e) {
-      // Abaikan error logout dari server, yang penting token lokal dihapus
+      // Abaikan error
     } finally {
       emit(AuthUnauthenticated());
     }
   }
 
-  // 6. Update User Profile (untuk dipanggil setelah Edit Profile berhasil)
-  void updateUser(UserModel user) {
+  // 6. Update User Profile (Digunakan oleh EditProfileScreen)
+  void updateUser(UserModel updatedUser) {
     if (state is AuthAuthenticated) {
-      // Ambil token yang sudah ada di state
       final existingToken = (state as AuthAuthenticated).token;
-      // FIX: Menyertakan user baru DAN token lama
-      emit(AuthAuthenticated(user: user, token: existingToken));
+      emit(AuthAuthenticated(user: updatedUser, token: existingToken));
     }
   }
-
- // --- KRITIS: Metode untuk memperbarui data user saat sudah login ---
-  // Dipanggil setelah sukses update profile atau upload avatar
-  void updateProfileUser(UserModel updatedUser) {
-    if (state is AuthAuthenticated) {
-      // Ambil token yang sudah ada dari state lama
-      final existingToken = (state as AuthAuthenticated).token;
+  
+  // 7. POST /api/user/avatar (Upload File)
+  // FIX KRITIS: Mengambil user model yang baru dari API dan memperbarui AuthState.
+  Future<String?> uploadAvatar(File imageFile) async {
+    try {
+      // Panggil API service untuk upload dan dapatkan UserModel yang sudah diperbarui
+      final updatedUser = await _apiService.uploadAvatar(imageFile);
       
-      // Emit state baru dengan model user yang diperbarui (fresh data)
-      // FIX: Menyertakan user baru DAN token lama
-      emit(AuthAuthenticated(user: updatedUser, token: existingToken));
+      // KRITIS: Perbarui AuthState. Ini akan memicu BlocListener 
+      // di ListUserScreen untuk memanggil UserCubit.syncCurrentUserUpdate
+      updateUser(updatedUser); 
       
-      // State baru ini akan memicu rebuild pada ProfileScreen
+      return null; // Sukses
+      
+    } on DioException catch (e) {
+      return e.response?.data?['message'] ?? 'Gagal mengunggah avatar. Silakan coba lagi.';
+    } catch (e) {
+      return 'Terjadi kesalahan tak terduga saat upload.';
     }
   }
 }

@@ -1,9 +1,12 @@
+import 'package:astronacci_test_flutter/screens/home/user_detail_screen.dart'; // FIX: Pastikan ini adalah 'user_detail_screen.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:astronacci_test_flutter/blocs/user/user_cubit.dart';
 import 'package:astronacci_test_flutter/blocs/user/user_state.dart';
 import 'package:astronacci_test_flutter/models/user_model.dart';
-import 'package:astronacci_test_flutter/screens/home/user_detail_screen.dart'; // Import baru
+import 'package:astronacci_test_flutter/blocs/auth/auth_cubit.dart';
+import 'package:astronacci_test_flutter/blocs/auth/auth_state.dart';
+import 'package:astronacci_test_flutter/utils/avatar_helper.dart';
 
 class ListUserScreen extends StatefulWidget {
   const ListUserScreen({Key? key}) : super(key: key);
@@ -16,9 +19,6 @@ class _ListUserScreenState extends State<ListUserScreen> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   
-  // NOTE: Harap sesuaikan BASE_URL ini agar sama dengan BASE_URL API Anda
-  final String BASE_URL = 'http://10.44.208.65:8081'; 
-
   @override
   void initState() {
     super.initState();
@@ -43,25 +43,30 @@ class _ListUserScreenState extends State<ListUserScreen> {
     super.dispose();
   }
   
-  // Fungsi helper untuk mendapatkan URL lengkap
-  Widget _buildAvatarWidget(UserModel user) {
-    String? finalAvatarUrl;
-    if (user.avatarUrl != null && user.avatarUrl!.isNotEmpty) {
-      if (user.avatarUrl!.startsWith('http')) {
-        finalAvatarUrl = user.avatarUrl;
-      } else if (user.avatarUrl!.startsWith('/')) {
-        finalAvatarUrl = '$BASE_URL${user.avatarUrl}';
-      }
-    }
+  // Fungsi helper untuk mendapatkan URL lengkap dengan anti-cache
+  Widget _buildAvatarWidget(BuildContext context, UserModel user) {
+    // 1. Akses AuthCubit untuk mendapatkan base URL
+    final authCubit = context.read<AuthCubit>();
+    // Pastikan ApiService dan dio.options.baseUrl tersedia di AuthCubit Anda
+    final baseUrl = authCubit.apiService.dio.options.baseUrl;
     
-    final bool hasAvatar = finalAvatarUrl != null;
+    // 2. Gunakan helper terpusat
+    final String finalAvatarUrlWithAntiCache = getAvatarUrlWithCacheBuster(
+      baseUrl: baseUrl,
+      user: user,
+    );
+    
+    // 3. Cek apakah URL yang dihasilkan adalah placeholder (tanpa avatar)
+    // FIX: Menggunakan startsWith() yang lebih aman daripada contains() pada String?
+    final bool isPlaceholder = finalAvatarUrlWithAntiCache.startsWith('https://placehold.co');
 
     return CircleAvatar(
       backgroundColor: Colors.teal.shade100,
-      child: hasAvatar
+      child: !isPlaceholder
           ? ClipOval(
               child: Image.network(
-                finalAvatarUrl!,
+                finalAvatarUrlWithAntiCache, // Menggunakan URL anti-cache dari helper
+                key: ValueKey(finalAvatarUrlWithAntiCache), // Kunci unik untuk widget Image
                 width: 40, 
                 height: 40, 
                 fit: BoxFit.cover,
@@ -74,97 +79,103 @@ class _ListUserScreenState extends State<ListUserScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Daftar Pengguna'),
-        backgroundColor: Colors.teal,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60.0),
-          child: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              controller: _searchController,
-              onChanged: _onSearchChanged,
-              decoration: InputDecoration(
-                hintText: 'Cari pengguna...',
-                prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide.none,
+    return BlocListener<AuthCubit, AuthState>(
+      listener: (context, authState) {
+        if (authState is AuthAuthenticated) {
+          context.read<UserCubit>().syncCurrentUserUpdate(authState.user);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Daftar Pengguna'),
+          backgroundColor: Colors.teal,
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(60.0),
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: TextField(
+                controller: _searchController,
+                onChanged: _onSearchChanged,
+                decoration: InputDecoration(
+                  hintText: 'Cari pengguna...',
+                  prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
           ),
         ),
-      ),
-      body: BlocBuilder<UserCubit, UserState>(
-        builder: (context, state) {
-          if (state is UserInitial || (state is UserLoading && state is! UserLoaded)) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (state is UserError) {
-            return Center(
-              child: Text(state.message),
-            );
-          }
-          if (state is UserLoaded) {
-            final List<UserModel> users = state.users;
-            
-            if (users.isEmpty) {
+        body: BlocBuilder<UserCubit, UserState>(
+          builder: (context, state) {
+            if (state is UserInitial || (state is UserLoading && state is! UserLoaded)) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (state is UserError) {
               return Center(
-                child: Text(
-                  state.searchQuery != null && state.searchQuery!.isNotEmpty
-                      ? 'Tidak ada pengguna ditemukan untuk "${state.searchQuery}"'
-                      : 'Belum ada pengguna terdaftar.',
+                child: Text(state.message),
+              );
+            }
+            if (state is UserLoaded) {
+              final List<UserModel> users = state.users;
+              
+              if (users.isEmpty) {
+                return Center(
+                  child: Text(
+                    state.searchQuery != null && state.searchQuery!.isNotEmpty
+                        ? 'Tidak ada pengguna ditemukan untuk "${state.searchQuery}"'
+                        : 'Belum ada pengguna terdaftar.',
+                  ),
+                );
+              }
+
+              return RefreshIndicator(
+                onRefresh: () async => context.read<UserCubit>().fetchUsers(isRefresh: true),
+                child: ListView.builder(
+                  controller: _scrollController,
+                  itemCount: users.length + (state.hasReachedMax ? 0 : 1), 
+                  itemBuilder: (context, index) {
+                    if (index >= users.length) {
+                      return const Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+
+                    final user = users[index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      child: ListTile(
+                        leading: _buildAvatarWidget(context, user), 
+                        
+                        title: Text(user.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text(user.email),
+                        trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                        
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              // FIX: UserDetailScreen sudah ditemukan berkat perbaikan import
+                              builder: (context) => UserDetailScreen(user: user),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  },
                 ),
               );
             }
-
-            return RefreshIndicator(
-              onRefresh: () async => context.read<UserCubit>().fetchUsers(isRefresh: true),
-              child: ListView.builder(
-                controller: _scrollController,
-                itemCount: users.length + (state.hasReachedMax ? 0 : 1), 
-                itemBuilder: (context, index) {
-                  if (index >= users.length) {
-                    return const Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: Center(child: CircularProgressIndicator()),
-                    );
-                  }
-
-                  final user = users[index];
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    child: ListTile(
-                      // Menggunakan widget avatar baru
-                      leading: _buildAvatarWidget(user), 
-                      
-                      title: Text(user.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text(user.email),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                      
-                      // LOGIKA KRITIS: Navigasi ke Detail User
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => UserDetailScreen(user: user),
-                          ),
-                        );
-                      },
-                    ),
-                  );
-                },
-              ),
-            );
-          }
-          return const SizedBox.shrink();
-        },
+            return const SizedBox.shrink();
+          },
+        ),
       ),
     );
   }

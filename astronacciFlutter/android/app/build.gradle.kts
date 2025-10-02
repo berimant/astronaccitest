@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.astronacci_test_flutter"
-    compileSdk = 35
+    compileSdk = 36 
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -19,22 +19,31 @@ android {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
+    // FIX KRITIS (Hardcode): Langsung masukkan kredensial.
+    // Peringatan: Hardcode SANGAT TIDAK AMAN jika kode ini di-commit ke Git.
+    signingConfigs {
+        create("release") {
+            // FIX PATH: Menggunakan path relatif ("../") dari 'android/app/' ke 'android/'.
+            storeFile = file("../astronacci_key.jks") 
+            storePassword = "chindy" 
+            keyAlias = "astronacci_alias"
+            keyPassword = "chindy"
+        }
+    }
+
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.astronacci_test_flutter"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 21
-        targetSdk = 35
+        targetSdk = 36 
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
     buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+        getByName("release") {
+            isMinifyEnabled = false // FIX: Menonaktifkan R8
+            isShrinkResources = false // FIX: Menonaktifkan resource shrinking
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

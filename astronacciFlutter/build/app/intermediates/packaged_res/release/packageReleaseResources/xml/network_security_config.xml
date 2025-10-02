@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- 
+    Mengizinkan cleartext traffic (HTTP) ke domain atau IP tertentu.
+    Ini KRITIS untuk pengembangan lokal menggunakan alamat IP Wi-Fi (192.168.x.x atau 10.x.x.x).
+    
+    Ganti 10.44.208.65 dengan IP komputer Anda yang sebenarnya.
+    -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">10.44.208.65</domain>
+    </domain-config>
+    
+    <!-- 
+    Jika Anda ingin mengizinkan cleartext secara global (TIDAK DISARANKAN untuk produksi), 
+    gunakan tag ini (tapi IP yang spesifik lebih baik):
+    
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    -->
+</network-security-config>

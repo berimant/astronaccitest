@@ -1,0 +1,4 @@
+#Fri Oct 03 04:02:07 WITA 2025
+base.0=/home/alexmystogan/Documents/rimandatakerja/ProjectHomeTest/astronacciFlutter/build/app/intermediates/dex/release/mergeDexRelease/classes.dex
+path.0=classes.dex
+renamed.0=classes.dex

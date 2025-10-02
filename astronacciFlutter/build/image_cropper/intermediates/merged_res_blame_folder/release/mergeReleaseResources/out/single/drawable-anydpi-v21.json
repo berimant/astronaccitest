@@ -1,0 +1,26 @@
+[
+    {
+        "merged": "vn.hunghd.flutter.plugins.imagecropper.image_cropper-release-38:/drawable-anydpi-v21/ic_call_answer.xml",
+        "source": "vn.hunghd.flutter.plugins.imagecropper.image_cropper-core-1.13.1-19:/drawable-anydpi-v21/ic_call_answer.xml"
+    },
+    {
+        "merged": "vn.hunghd.flutter.plugins.imagecropper.image_cropper-release-38:/drawable-anydpi-v21/ic_call_answer_video.xml",
+        "source": "vn.hunghd.flutter.plugins.imagecropper.image_cropper-core-1.13.1-19:/drawable-anydpi-v21/ic_call_answer_video.xml"
+    },
+    {
+        "merged": "vn.hunghd.flutter.plugins.imagecropper.image_cropper-release-38:/drawable-anydpi-v21/ic_call_answer_video_low.xml",
+        "source": "vn.hunghd.flutter.plugins.imagecropper.image_cropper-core-1.13.1-19:/drawable-anydpi-v21/ic_call_answer_video_low.xml"
+    },
+    {
+        "merged": "vn.hunghd.flutter.plugins.imagecropper.image_cropper-release-38:/drawable-anydpi-v21/ic_call_decline.xml",
+        "source": "vn.hunghd.flutter.plugins.imagecropper.image_cropper-core-1.13.1-19:/drawable-anydpi-v21/ic_call_decline.xml"
+    },
+    {
+        "merged": "vn.hunghd.flutter.plugins.imagecropper.image_cropper-release-38:/drawable-anydpi-v21/ic_call_answer_low.xml",
+        "source": "vn.hunghd.flutter.plugins.imagecropper.image_cropper-core-1.13.1-19:/drawable-anydpi-v21/ic_call_answer_low.xml"
+    },
+    {
+        "merged": "vn.hunghd.flutter.plugins.imagecropper.image_cropper-release-38:/drawable-anydpi-v21/ic_call_decline_low.xml",
+        "source": "vn.hunghd.flutter.plugins.imagecropper.image_cropper-core-1.13.1-19:/drawable-anydpi-v21/ic_call_decline_low.xml"
+    }
+]

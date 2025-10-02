@@ -1,5 +1,5 @@
 import 'package:astronacci_test_flutter/screens/home/edit_profile_screen.dart';
-import 'package:astronacci_test_flutter/screens/home/change_password_screen.dart'; // Import yang dibutuhkan
+import 'package:astronacci_test_flutter/screens/home/change_password_screen.dart'; 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:astronacci_test_flutter/blocs/auth/auth_cubit.dart';
@@ -14,22 +14,11 @@ class ProfileScreen extends StatelessWidget {
     // Mendapatkan data user dari AuthCubit state
     final user = (context.watch<AuthCubit>().state as AuthAuthenticated).user;
     
-    // --- PERBAIKAN KRITIS: BASE URL untuk Avatar ---
-    // GANTI DENGAN IP DAN PORT SERVER LARAVEL ANDA YANG BENAR.
-    const String BASE_URL = 'http://10.44.208.65:8081'; 
-    
-    String? finalAvatarUrl;
-    if (user.avatarUrl != null && user.avatarUrl!.isNotEmpty) {
-      if (user.avatarUrl!.startsWith('http')) {
-        // Jika sudah full URL, gunakan langsung
-        finalAvatarUrl = user.avatarUrl;
-      } else if (user.avatarUrl!.startsWith('/')) {
-        // Jika hanya path relatif (misal: /storage/avatars/...), gabungkan dengan BASE_URL
-        finalAvatarUrl = '$BASE_URL${user.avatarUrl}';
-      }
-    }
-    
+    // --- PERUBAHAN KRITIS: Hapus BASE_URL dan Logika Konstruksi URL ---
+    // user.avatarUrl kini dijamin sudah menjadi URL absolut oleh ApiService!
+    final String? finalAvatarUrl = user.avatarUrl; 
     final bool hasAvatar = finalAvatarUrl != null && finalAvatarUrl.isNotEmpty;
+    // ----------------------------------------------------------------
 
     return Scaffold(
       appBar: AppBar(
@@ -59,7 +48,7 @@ class ProfileScreen extends StatelessWidget {
                 child: hasAvatar
                     ? ClipOval(
                         child: Image.network(
-                          finalAvatarUrl!, // Menggunakan URL lengkap yang sudah digabungkan
+                          finalAvatarUrl!, // Langsung pakai finalAvatarUrl (yang sama dengan user.avatarUrl)
                           width: 120,
                           height: 120,
                           fit: BoxFit.cover,
@@ -101,7 +90,7 @@ class ProfileScreen extends StatelessWidget {
             
             const SizedBox(height: 40),
 
-            // TOMBOL 1: Edit Profil (Sudah ada)
+            // TOMBOL 1: Edit Profil
             ElevatedButton.icon(
               icon: const Icon(Icons.edit),
               label: const Text('Edit Profil'),
@@ -119,9 +108,9 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
             
-            const SizedBox(height: 16), // Jarak antara dua tombol
+            const SizedBox(height: 16), 
 
-            // TOMBOL 2: Ganti Password (Baru ditambahkan)
+            // TOMBOL 2: Ganti Password
             ElevatedButton.icon(
               icon: const Icon(Icons.lock_reset),
               label: const Text('Ganti Password'),
@@ -132,7 +121,7 @@ class ProfileScreen extends StatelessWidget {
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueGrey.shade600, // Warna yang berbeda
+                backgroundColor: Colors.blueGrey.shade600, 
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
